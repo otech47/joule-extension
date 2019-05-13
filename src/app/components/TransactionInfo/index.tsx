@@ -7,6 +7,7 @@ import Unit from 'components/Unit';
 import Copy from 'components/Copy';
 import DetailsTable, { DetailsRow } from 'components/DetailsTable';
 import TransferIcons, { TransferParty } from 'components/TransferIcons';
+import BigMessage from 'components/BigMessage';
 import { ellipsisSandwich } from 'utils/formatters';
 import { getAccountInfo } from 'modules/account/actions';
 import { AnyTransaction } from 'modules/account/types';
@@ -52,36 +53,48 @@ class TransactionInfo extends React.Component<Props> {
     if (isPayment(tx)) {
       to = {
         name: tx.to.alias,
-        icon: <Identicon pubkey={tx.to.pub_key} />
+        icon: <Identicon pubkey={tx.to.pub_key} />,
       };
       from = {
         name: account.alias,
         icon: <Identicon pubkey={account.pubKey} />,
       };
-      details = [{
-        label: 'Amount',
-        value: <Unit value={tx.value_sat} showFiat />,
-      }, {
-        label: 'Fee',
-        value: <Unit value={tx.fee} />,
-      }, {
-        label: 'Date',
-        value: unixMoment(tx.creation_date).format(LONG_FORMAT),
-      }, {
-        label: 'Hops',
-        value: tx.path.length,
-      }];
+      details = [
+        {
+          label: 'Amount',
+          value: <Unit value={tx.value_sat} showFiat />,
+        },
+        {
+          label: 'Fee',
+          value: <Unit value={tx.fee} />,
+        },
+        {
+          label: 'Date',
+          value: unixMoment(tx.creation_date).format(LONG_FORMAT),
+        },
+        {
+          label: 'Hops',
+          value: tx.path.length,
+        },
+      ];
       pathEl = (
         <div className="TxInfo-route">
           <h2 className="TxInfo-route-title">Route</h2>
           <div className="TxInfo-route-routes">
-            <Timeline>
-              {tx.path.map(id => (
-                <Timeline.Item key={id}>
-                  <code>{id}</code>
-                </Timeline.Item>
-              ))}
-            </Timeline>
+            {tx.path.length ? (
+              <Timeline>
+                {tx.path.map(id => (
+                  <Timeline.Item key={id}>
+                    <code>{id}</code>
+                  </Timeline.Item>
+                ))}
+              </Timeline>
+            ) : (
+              <BigMessage
+                title="No route info available"
+                message="This payment may be too old, and not have stored routing data"
+              />
+            )}
           </div>
         </div>
       );
@@ -99,51 +112,61 @@ class TransactionInfo extends React.Component<Props> {
           </div>
         ),
       };
-      details = [{
-        label: 'Amount',
-        value: tx.value ? <Unit value={tx.value} showFiat /> : <em>N/A</em>,
-      }, {
-        label: 'Memo',
-        value: tx.memo || <em>N/A</em>,
-      }, {
-        label: 'Date',
-        value: unixMoment(tx.creation_date).format(LONG_FORMAT),
-      }, {
-        label: 'Expiry',
-        value: unixMoment(tx.creation_date)
-          .add(tx.expiry, 'seconds')
-          .format(LONG_FORMAT),
-      }];
+      details = [
+        {
+          label: 'Amount',
+          value: tx.value ? <Unit value={tx.value} showFiat /> : <em>N/A</em>,
+        },
+        {
+          label: 'Memo',
+          value: tx.memo || <em>N/A</em>,
+        },
+        {
+          label: 'Date',
+          value: unixMoment(tx.creation_date).format(LONG_FORMAT),
+        },
+        {
+          label: 'Expiry',
+          value: unixMoment(tx.creation_date)
+            .add(tx.expiry, 'seconds')
+            .format(LONG_FORMAT),
+        },
+      ];
     } else if (isBitcoinTx(tx)) {
-      details = [{
-        label: 'Amount',
-        value: <Unit value={tx.amount.replace('-', '')} showFiat />,
-      }, {
-        label: 'Fee',
-        value: <Unit value={tx.total_fees} />,
-      }, {
-        label: 'Block height',
-        value: (
-          <a
-            href={`https://blockstream.info/block/${tx.block_hash}`}
-            target="_blank"
-            rel="noopener nofollow"
-          >
-            {tx.block_height}
-          </a>
-        ),
-      }, {
-        label: 'Tx Hash',
-        value: (
-          <a
-            href={`https://blockstream.info/tx/${tx.tx_hash}`}
-            target="_blank"
-            rel="noopener nofollow"
-          >
-            {ellipsisSandwich(tx.tx_hash, 5)}
-          </a>
-        ),
-      }];
+      details = [
+        {
+          label: 'Amount',
+          value: <Unit value={tx.amount.replace('-', '')} showFiat />,
+        },
+        {
+          label: 'Fee',
+          value: <Unit value={tx.total_fees} />,
+        },
+        {
+          label: 'Block height',
+          value: (
+            <a
+              href={`https://blockstream.info/block/${tx.block_hash}`}
+              target="_blank"
+              rel="noopener nofollow"
+            >
+              {tx.block_height}
+            </a>
+          ),
+        },
+        {
+          label: 'Tx Hash',
+          value: (
+            <a
+              href={`https://blockstream.info/tx/${tx.tx_hash}`}
+              target="_blank"
+              rel="noopener nofollow"
+            >
+              {ellipsisSandwich(tx.tx_hash, 5)}
+            </a>
+          ),
+        },
+      ];
     }
 
     return (
@@ -171,7 +194,7 @@ class TransactionInfo extends React.Component<Props> {
 
         {pathEl}
       </div>
-    )
+    );
   }
 }
 

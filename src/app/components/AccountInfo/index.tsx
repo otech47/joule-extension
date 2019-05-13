@@ -9,18 +9,21 @@ import Unit from 'components/Unit';
 import DepositModal from './DepositModal';
 import NodeUriModal from './NodeUriModal';
 import { getAccountInfo } from 'modules/account/actions';
-import { getNodeChain } from 'modules/node/selectors';
+import { getNodeInfo } from 'modules/node/actions';
+import { getNodeChain, selectNodeInfo } from 'modules/node/selectors';
 import { blockchainDisplayName } from 'utils/constants';
 import { AppState } from 'store/reducers';
 import './style.less';
 
 interface StateProps {
   account: AppState['account']['account'];
+  nodeInfo: ReturnType<typeof selectNodeInfo>;
   chain: ReturnType<typeof getNodeChain>;
 }
 
 interface DispatchProps {
   getAccountInfo: typeof getAccountInfo;
+  getNodeInfo: typeof getNodeInfo;
 }
 
 interface OwnProps {
@@ -41,28 +44,39 @@ class AccountInfo extends React.Component<Props, State> {
     isNodeUriModalOpen: false,
   };
 
-  componentDidMount() { 
+  componentDidMount() {
     if (!this.props.account) {
       this.props.getAccountInfo();
+    }
+    if (!this.props.nodeInfo) {
+      this.props.getNodeInfo();
     }
   }
 
   render() {
-    const { account, chain } = this.props;
-    const { isDepositModalOpen,isNodeUriModalOpen } = this.state;
-    const actions: ButtonProps[] = [{
-      children: 'Deposit',
-      icon: 'qrcode',
-      onClick: this.openDepositModal,
-    }, {
-      children: 'Invoice',
-      icon: 'file-text',
-      onClick: this.props.onInvoiceClick,
-    }, {
-      children: <><Icon type="thunderbolt" theme="filled"/> Send</>,
-      type: 'primary' as any,
-      onClick: this.props.onSendClick,
-    }];
+    const { account, nodeInfo, chain } = this.props;
+    const { isDepositModalOpen, isNodeUriModalOpen } = this.state;
+    const actions: ButtonProps[] = [
+      {
+        children: 'Deposit',
+        icon: 'qrcode',
+        onClick: this.openDepositModal,
+      },
+      {
+        children: 'Invoice',
+        icon: 'file-text',
+        onClick: this.props.onInvoiceClick,
+      },
+      {
+        children: (
+          <>
+            <Icon type="thunderbolt" theme="filled" /> Send
+          </>
+        ),
+        type: 'primary' as any,
+        onClick: this.props.onSendClick,
+      },
+    ];
 
     let showPending = false;
     let balanceDiff = '0';
@@ -87,8 +101,14 @@ class AccountInfo extends React.Component<Props, State> {
               <div className="AccountInfo-top-info-alias">{account.alias}</div>
               <div className="AccountInfo-top-info-balance">
                 <Unit value={account.totalBalancePending} showFiat />
-                {showPending &&
-                  <Tooltip title={<><Unit value={balanceDiff} /> pending</>}>
+                {showPending && (
+                  <Tooltip
+                    title={
+                      <>
+                        <Unit value={balanceDiff} /> pending
+                      </>
+                    }
+                  >
                     <Link to="/balances">
                       <Icon
                         className="AccountInfo-top-info-balance-pending"
@@ -96,11 +116,16 @@ class AccountInfo extends React.Component<Props, State> {
                       />
                     </Link>
                   </Tooltip>
-                }
+                )}
               </div>
               <div className="AccountInfo-top-info-balances">
-                <span>Channels: <Unit value={account.channelBalance} /></span>
-                <span>{blockchainDisplayName[chain]}: <Unit value={account.blockchainBalance} /></span>
+                <span>
+                  Channels: <Unit value={account.channelBalance} />
+                </span>
+                <span>
+                  {blockchainDisplayName[chain]}:{' '}
+                  <Unit value={account.blockchainBalance} />
+                </span>
               </div>
             </div>
           </div>
@@ -116,19 +141,19 @@ class AccountInfo extends React.Component<Props, State> {
           ))}
         </div>
 
-        {account &&
-          <DepositModal
-            isOpen={isDepositModalOpen}
-            onClose={this.closeDepositModal}
-          />
-        }
+        {nodeInfo && !nodeInfo.synced_to_chain && (
+          <div className="AccountInfo-syncWarning">
+            <Icon type="warning" /> Node is syncing to chain, balances may be incorrect
+          </div>
+        )}
 
-        {account &&
-          <NodeUriModal
-            isOpen={isNodeUriModalOpen}
-            onClose={this.closeNodeUriModal}
-          />
-        }
+        {account && (
+          <DepositModal isOpen={isDepositModalOpen} onClose={this.closeDepositModal} />
+        )}
+
+        {account && (
+          <NodeUriModal isOpen={isNodeUriModalOpen} onClose={this.closeNodeUriModal} />
+        )}
       </div>
     );
   }
@@ -137,15 +162,17 @@ class AccountInfo extends React.Component<Props, State> {
   private closeDepositModal = () => this.setState({ isDepositModalOpen: false });
   // Get Node URI or Pubkey with QR Code
   private openNodeUriModal = () => this.setState({ isNodeUriModalOpen: true });
-  private closeNodeUriModal = () => this.setState({ isNodeUriModalOpen: false }); 
+  private closeNodeUriModal = () => this.setState({ isNodeUriModalOpen: false });
 }
 
 export default connect<StateProps, DispatchProps, {}, AppState>(
   state => ({
     account: state.account.account,
+    nodeInfo: selectNodeInfo(state),
     chain: getNodeChain(state),
   }),
   {
+    getNodeInfo,
     getAccountInfo,
   },
 )(AccountInfo);

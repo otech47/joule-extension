@@ -32,29 +32,28 @@ class SendForm extends React.Component<Props, State> {
     const { type } = this.state;
     const { chain } = this.props;
 
-    const form = type === 'lightning' ? (
-      <LightningSend close={this.props.close} />
-    ) : (
-      <ChainSend close={this.props.close} />
-    );
+    const form =
+      type === 'lightning' ? (
+        <LightningSend close={this.props.close} />
+      ) : (
+        <ChainSend close={this.props.close} />
+      );
 
     return (
       <div className="SendForm">
         <div className="SendForm-type">
           <Radio.Group value={type} onChange={this.handleTypeChange}>
             <Radio.Button value="lightning">
-              <Icon type="thunderbolt" /> Lighting
+              <Icon type="thunderbolt" /> Lightning
             </Radio.Button>
             <Radio.Button>
-            <Icon type="link" /> {blockchainDisplayName[chain]}
+              <Icon type="link" /> {blockchainDisplayName[chain]}
             </Radio.Button>
           </Radio.Group>
         </div>
-        <div className="SendForm-form">
-          {form}
-        </div>
+        <div className="SendForm-form">{form}</div>
       </div>
-    )
+    );
   }
 
   private handleTypeChange = (ev: RadioChangeEvent) => {

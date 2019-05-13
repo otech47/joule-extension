@@ -4,7 +4,12 @@ import { connect } from 'react-redux';
 import { Form, Input, Select, Button } from 'antd';
 import { RequestInvoiceArgs, RequestInvoiceResponse } from 'webln';
 import PromptTemplate from 'components/PromptTemplate';
-import { getPromptArgs, getPromptOrigin, watchUntilPropChange, OriginData } from 'utils/prompt';
+import {
+  getPromptArgs,
+  getPromptOrigin,
+  watchUntilPropChange,
+  OriginData,
+} from 'utils/prompt';
 import { removeDomainPrefix } from 'utils/formatters';
 import { Denomination, denominationSymbols, fiatSymbols } from 'utils/constants';
 import { typedKeys } from 'utils/ts';
@@ -41,18 +46,24 @@ interface State {
   isShowingAdvanced: boolean;
 }
 
+const notNilNum = (v: string | number | null | undefined): v is string | number =>
+  !!v || v === 0;
+
 class InvoicePrompt extends React.Component<Props, State> {
   private args: RequestInvoiceArgs;
   private origin: OriginData;
 
   constructor(props: Props) {
     super(props);
-    this.args = getPromptArgs<RequestInvoiceArgs>();
+    const args = getPromptArgs<RequestInvoiceArgs>();
+    this.args = args;
     this.origin = getPromptOrigin();
 
     const { denomination } = props;
-    const valueSats = this.args.amount || this.args.defaultAmount;
-    const value = valueSats ? fromBaseToUnit(valueSats.toString(), denomination).toString() : '';
+    const valueSats = notNilNum(args.amount) ? args.amount : args.defaultAmount;
+    const value = notNilNum(valueSats)
+      ? fromBaseToUnit(valueSats.toString(), denomination).toString()
+      : '';
 
     this.state = {
       value,
@@ -65,11 +76,18 @@ class InvoicePrompt extends React.Component<Props, State> {
   }
 
   render() {
-    const { value, denomination, memo, fallbackAddress, expiry, isShowingAdvanced } = this.state;
+    const {
+      value,
+      denomination,
+      memo,
+      fallbackAddress,
+      expiry,
+      isShowingAdvanced,
+    } = this.state;
     const { chain } = this.props;
     const amountError = this.getValueError();
     const isConfirmDisabled = !!amountError;
-    const isValueDisabled = !!this.args.amount;
+    const isValueDisabled = notNilNum(this.args.amount);
     const amountHelp = this.renderHelp();
 
     return (
@@ -83,8 +101,8 @@ class InvoicePrompt extends React.Component<Props, State> {
               <img src={this.origin.icon} />
             </div>
             <h1 className="InvoicePrompt-header-title">
-              <strong>{removeDomainPrefix(this.origin.domain)}</strong>
-              {' '}wants you to generate an invoice
+              <strong>{removeDomainPrefix(this.origin.domain)}</strong> wants you to
+              generate an invoice
             </h1>
           </div>
           <Form className="InvoicePrompt-form">
@@ -97,7 +115,7 @@ class InvoicePrompt extends React.Component<Props, State> {
               <Input.Group size="large" compact>
                 <Input
                   size="large"
-                  value={value}
+                  value={value === '0' && isValueDisabled ? '0 (Any amount)' : value}
                   onChange={this.handleChangeValue}
                   placeholder="Enter an amount"
                   disabled={isValueDisabled}
@@ -175,68 +193,58 @@ class InvoicePrompt extends React.Component<Props, State> {
     const { value, denomination } = this.state;
     const helpPieces = [];
 
-    if (this.args.amount) {
+    if (notNilNum(this.args.amount)) {
       helpPieces.push(
-        <span key="disabled">
-          Specific amount was set and cannot be adjusted
-        </span>
+        <span key="disabled">Specific amount was set and cannot be adjusted</span>,
       );
     } else {
-      if (this.args.minimumAmount) {
+      if (notNilNum(this.args.minimumAmount)) {
         helpPieces.push(
           <span key="min">
-            <strong>Min:</strong>
-            {' '}
-            {fromBaseToUnit(this.args.minimumAmount.toString(), denomination)}
-            {' '}
+            <strong>Min:</strong>{' '}
+            {fromBaseToUnit(this.args.minimumAmount.toString(), denomination)}{' '}
             {denominationSymbols[chain][denomination]}
-          </span>
+          </span>,
         );
       }
-      if (this.args.maximumAmount) {
+      if (notNilNum(this.args.maximumAmount)) {
         helpPieces.push(
           <span key="max">
-            <strong>Max:</strong>
-            {' '}
-            {fromBaseToUnit(this.args.maximumAmount.toString(), denomination)}
-            {' '}
+            <strong>Max:</strong>{' '}
+            {fromBaseToUnit(this.args.maximumAmount.toString(), denomination)}{' '}
             {denominationSymbols[chain][denomination]}
-          </span>
+          </span>,
         );
       }
     }
 
     if (rates && !isNoFiat) {
-      const fiatAmt = fromUnitToFiat(
-        value,
-        denomination,
-        rates[fiat],
-        fiatSymbols[fiat],
-      );
+      const fiatAmt = fromUnitToFiat(value, denomination, rates[fiat], fiatSymbols[fiat]);
       helpPieces.push(
         <span key="fiat" className="is-fiat">
           ≈ {fiatAmt}
-        </span>
-      )
+        </span>,
+      );
     }
 
     return helpPieces;
   };
 
   private getValueError = () => {
-    const { value, denomination } = this.state;
+    const { args, state } = this;
+    const { value, denomination } = state;
     const valueBN = new BN(fromUnitToBase(value, denomination));
     if (!value) {
       return 'Must specify value';
     }
-    if (this.args.maximumAmount) {
-      const max = new BN(this.args.maximumAmount);
+    if (notNilNum(args.maximumAmount)) {
+      const max = new BN(args.maximumAmount);
       if (max.lt(valueBN)) {
         return 'Amount exceeds maximum';
       }
     }
-    if (this.args.minimumAmount) {
-      const min = new BN(this.args.minimumAmount);
+    if (notNilNum(args.minimumAmount)) {
+      const min = new BN(args.minimumAmount);
       if (min.gte(valueBN)) {
         return 'Amount is less than minimum';
       }
@@ -259,7 +267,9 @@ class InvoicePrompt extends React.Component<Props, State> {
     });
   };
 
-  private handleChangeField = (ev: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  private handleChangeField = (
+    ev: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     this.setState({ [ev.target.name]: ev.target.value } as any);
   };
 
